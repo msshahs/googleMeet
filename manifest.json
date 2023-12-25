@@ -49,7 +49,7 @@
         "activeTab",
         "storage",
         "desktopCapture",
-        "audioCapture"
+        "tabCapture"
     ],
     "version": "1.0.0"
 }
