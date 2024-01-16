@@ -124,7 +124,7 @@ const downloadVideo = (videoUrl) => {
     const a = document.createElement('a');
     a.style.display = 'none';
     a.href = videoUrl;
-    a.download = `screen-recording-${dateFormat()}.wav`;
+    a.download = `screen-recording-${dateFormat()}.webm`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -195,44 +195,44 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
             }
         })
         console.log(deviceId);
-        speakerOnly(deviceId)
-        // if (isGoogleMeet()) {
-        //     sendResponse(`processed: ${message.action}`);
-        //     navigator.mediaDevices.getUserMedia({
-        //         video: true,
-        //         audio: false,
-        //         video: {
-        //             mandatory: {
-        //                 chromeMediaSource: 'tab',
-        //                 chromeMediaSourceId: message.streamId
-        //             }
-        //         }
-        //     }).then((stream) => {
-        //         screenStream = stream;
-        //         return navigator.mediaDevices.getUserMedia({ audio: true });
+        // speakerOnly(deviceId)
+        if (isGoogleMeet()) {
+            sendResponse(`processed: ${message.action}`);
+            navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: false,
+                video: {
+                    mandatory: {
+                        chromeMediaSource: 'tab',
+                        chromeMediaSourceId: message.streamId
+                    }
+                }
+            }).then((stream) => {
+                screenStream = stream;
+                return navigator.mediaDevices.getUserMedia({ audio: true });
 
-        //     }).then(stream => {
-        //         microphoneStream = stream;
-        //         return navigator.mediaDevices.getUserMedia({
-        //             audio: {
-        //                 deviceId: deviceId
-        //             },
-        //         });
-        //     }).then(stream => {
-        //         speakerStream = stream;
-        //         console.log(speakerStream);
-        //         const combinedStream = new MediaStream([
-        //             ...screenStream.getVideoTracks(),
-        //             ...microphoneStream.getAudioTracks(),
-        //             ...speakerStream.getAudioTracks()
-        //         ]);
-        //         onAccessApproved(combinedStream);
-        //     }).catch(error => {
-        //         console.error('Error accessing media devices:', error);
-        //     });
-        // } else {
-        //     alert("This extension is only to record your Google meeting. So please create your meeting then start recording.");
-        // }
+            }).then(stream => {
+                microphoneStream = stream;
+                return navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        deviceId: deviceId
+                    },
+                });
+                
+            }).then(stream => {
+                speakerStream = stream;
+                const combinedStream = new MediaStream([
+                    ...screenStream.getVideoTracks(),
+                    ...microphoneStream.getAudioTracks(),
+                    ...speakerStream.getAudioTracks()
+                ]);
+                onAccessApproved(combinedStream);
+            }).catch(error => {
+                console.error('Error accessing media devices:', error);
+            });
+        } else {
+            alert("This extension is only to record your Google meeting. So please create your meeting then start recording.");
+        }
     }
 
     if (message.action === "stop_recording") {

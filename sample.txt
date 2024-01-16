@@ -144,6 +144,6 @@ kind
 "audiooutput"
 label
 : 
-"Communications - Speakers (Realtek High Definition 
+"Communications - Speakers (Realtek High Definition )
 
 https://meet.google.com/$rpc/google.rtc.meetings.v1.MeetingSpaceService/SyncMeetingSpaceCollections
