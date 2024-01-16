@@ -1,55 +1,55 @@
 {
-    "manifest_version": 3,
-    "name": "Google Meet Recorder",
-    "description": "It records your google meeting when ever you want and start your recording...",
-    "author": "Preet Shah",
-    "icons": {
-        "128": "/images/icon-128x128.png"
-    },
-    "background": {
-        "service_worker": "js/background.js"
-    },
-    "action": {
-        "default_popup": "popup.html",
-        "default_icon": {
-            "16": "/images/icon-32x32.png",
-            "32": "/images/icon-32x32.png",
-            "128": "/images/icon-128x128.png"
-        },
-        "default_title": "Google Meet Recorder"
-    },
-    "content_scripts": [
-        {
-            "matches": [
-                "<all_urls>"
-            ],
-            "js": [
-                "js/page.js"
-            ]
-        }
-    ],
-    "content_security_policy": {
-        "extension_pages": "script-src 'self'; img-src 'self'",
-        "script-src": [
-            "'self'",
-            "'wasm-unsafe-eval'",
-            "'inline-speculation-rules'",
-            "http://localhost:*",
-            "http://127.0.0.1:*",
-            "https://apis.google.com"
-        ]
-    },
-    "host_permissions": [
-        "http://*/",
-        "https://*/*"
-    ],
-    "permissions": [
-        "scripting",
-        "tabs",
-        "activeTab",
-        "storage",
-        "desktopCapture",
-        "tabCapture"
-    ],
-    "version": "1.0.0"
+   "manifest_version": 3,
+   "name": "Google Meet Recorder",
+   "description": "It records your google meeting when ever you want and start your recording...",
+   "author": "Preet Shah",
+   "icons": {
+      "128": "/images/icon-128x128.png"
+   },
+   "background": {
+      "service_worker": "js/background.js"
+   },
+   "action": {
+      "default_popup": "popup.html",
+      "default_icon": {
+         "16": "/images/icon-32x32.png",
+         "32": "/images/icon-32x32.png",
+         "128": "/images/icon-128x128.png"
+      },
+      "default_title": "Google Meet Recorder"
+   },
+   "content_scripts": [
+      {
+         "matches": [
+            "<all_urls>"
+         ],
+         "js": [
+            "js/page.js"
+         ]
+      }
+   ],
+   "content_security_policy": {
+      "extension_pages": "script-src 'self'; img-src 'self'",
+      "script-src": [
+         "'self'",
+         "'wasm-unsafe-eval'",
+         "'inline-speculation-rules'",
+         "http://localhost:*",
+         "http://127.0.0.1:*",
+         "https://apis.google.com"
+      ]
+   },
+   "host_permissions": [
+      "http://*/",
+      "https://*/*"
+   ],
+   "permissions": [
+      "scripting",
+      "tabs",
+      "activeTab",
+      "storage",
+      "desktopCapture",
+      "tabCapture"
+   ],
+   "version": "1.0.0"
 }

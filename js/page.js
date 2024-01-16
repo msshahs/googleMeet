@@ -4,7 +4,11 @@ let recognitionStopped = false;
 let fullTranscript = '';
 let screenStream;
 let microphoneStream;
+let speakerStream;
 let recordedChunks = [];
+let audioOutputDevices = [];
+let audioInputDevices = [];
+let videoInputDevices = [];
 // let audioUrl;
 
 console.log("here")
@@ -45,8 +49,8 @@ const onAccessApproved = (stream) => {
     mediaRecorder = new MediaRecorder(stream);
     mediaRecorder.start();
 
-    recognitionCapture();
-    
+    // recognitionCapture();
+
     mediaRecorder.onstop = () => {
         // console.log(sendMessage("stop_recording"))
         stream.getTracks().forEach(function (track) {
@@ -64,68 +68,21 @@ const onAccessApproved = (stream) => {
     };
 }
 
-//To combine audio capture form tab and video from screen this will combine both and generate the single video
-// const combineVideoAndAudio = (videoBlobUrl, audioBlobUrl) => {
-//     const video = document.createElement('video');
-//     const audio = document.createElement('audio');
-//     const mediaSource = new MediaSource();
+// fetch all the audio devices if you want to get the video(output & input both) then make video "true"
+const fetchAllDevices = async () => {
+    await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    let devices = await navigator.mediaDevices.enumerateDevices();
+    devices.forEach(device => {
+        if (device.kind === "audioinput")
+            audioInputDevices.push(device);
+        if (device.kind === "audiooutput")
+            audioOutputDevices.push(device)
+        if (device.kind === "videoinput")
+            videoInputDevices.push(device);
+    })
 
-//     video.src = videoBlobUrl;
-//     audio.src = audioBlobUrl;
-
-//     video.addEventListener('loadedmetadata', () => {
-//         const canvas = document.createElement('canvas');
-//         const ctx = canvas.getContext('2d');
-//         const width = video.videoWidth;
-//         const height = video.videoHeight;
-
-//         canvas.width = width;
-//         canvas.height = height;
-
-//         const sourceBuffer = mediaSource.addSourceBuffer('video/webm; codecs="vp8"');
-
-//         const appendVideoData = () => {
-//             ctx.drawImage(video, 0, 0, width, height);
-//             canvas.toBlob((blob) => {
-//                 sourceBuffer.appendBuffer(new Uint8Array(blob));
-//             }, 'image/webp');
-//         };
-
-//         const appendAudioData = () => {
-//             fetch(audioBlobUrl)
-//                 .then(response => response.arrayBuffer())
-//                 .then(data => sourceBuffer.appendBuffer(new Uint8Array(data)));
-//         };
-
-//         mediaSource.addEventListener('sourceopen', () => {
-//             appendVideoData();
-//             appendAudioData();
-//         });
-
-//         mediaSource.addEventListener('sourceended', () => {
-//             const combinedBlob = new Blob([sourceBuffer.buffer], { type: 'video/webm' });
-//             const downloadLink = document.createElement('a');
-//             downloadLink.href = URL.createObjectURL(combinedBlob);
-//             downloadLink.download = 'combined_video_with_audio.webm';
-//             downloadLink.click();
-
-//             // Clean up
-//             document.body.removeChild(downloadLink);
-//             document.body.removeChild(video);
-//             document.body.removeChild(audio);
-//             document.body.removeChild(canvas);
-//         });
-
-//         document.body.appendChild(video);
-//         document.body.appendChild(audio);
-//         document.body.appendChild(canvas);
-
-//         video.play();
-//         audio.play();
-//     });
-
-// }
-
+    return audioOutputDevices;
+}
 
 // stop the speech recognition
 const stopRecognition = () => {
@@ -167,7 +124,7 @@ const downloadVideo = (videoUrl) => {
     const a = document.createElement('a');
     a.style.display = 'none';
     a.href = videoUrl;
-    a.download = `screen-recording-${dateFormat()}.webm`;
+    a.download = `screen-recording-${dateFormat()}.wav`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -182,46 +139,100 @@ const isGoogleMeet = () => {
     );
 }
 
-//to send message to background
-// const sendMessage = (message) => {
-//     chrome.runtime.sendMessage({
-//         active: message === "start_recording" ? true : false
-//     }, (response) => {
-//         if (!chrome.runtime.lastError) {
-//             return response;
-//         } else {
-//             console.log(chrome.runtime.lastError)
-//         }
-//     })
-// }
+const speakerOnly = (deviceId) => {
+    let speakerStream;
+    navigator.mediaDevices.getUserMedia({
+        audio: true,
+        audio: {
+            deviceId: deviceId
+        }
+    }).then((stream) => {
+        speakerStream = stream;
+        context = new AudioContext();
+        var audio = context.createMediaStreamSource(stream);
+        audio.connect(context.destination);
+        console.log('Audio stream:', speakerStream);
+        const mediaRecorder = new MediaRecorder(speakerStream);
+        const chunks = [];
+
+        mediaRecorder.ondataavailable = (event) => {
+            console.log('Stream has audio track:', event.track);
+            if (event.data.size > 0) {
+                chunks.push(event.data);
+            }
+        };
+
+        mediaRecorder.onstop = () => {
+            const audioBlob = new Blob(chunks, { type: 'audio/wav' });
+            const downloadLink = document.createElement('a');
+            downloadLink.href = URL.createObjectURL(audioBlob);
+            downloadLink.download = 'recorded_audio.wav';
+            downloadLink.click();
+        };
+
+        mediaRecorder.start();
+
+        setTimeout(() => {
+            mediaRecorder.stop();
+            audioContext.close();
+        }, 15000);
+
+    }).catch((error) => {
+        console.error('Error accessing microphone:', error);
+    });
+}
 
 
 // check the request from extension
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     if (message.action === "start_recording") {
-        if (isGoogleMeet()) {
+        let devices = await fetchAllDevices();
+        let deviceId;
+        console.log(devices)
+        devices.forEach(device => {
+            if (device.label === "Default - Speakers (Realtek High Definition Audio)") {
+                deviceId = device.deviceId
+            }
+        })
+        console.log(deviceId);
+        speakerOnly(deviceId)
+        // if (isGoogleMeet()) {
+        //     sendResponse(`processed: ${message.action}`);
+        //     navigator.mediaDevices.getUserMedia({
+        //         video: true,
+        //         audio: false,
+        //         video: {
+        //             mandatory: {
+        //                 chromeMediaSource: 'tab',
+        //                 chromeMediaSourceId: message.streamId
+        //             }
+        //         }
+        //     }).then((stream) => {
+        //         screenStream = stream;
+        //         return navigator.mediaDevices.getUserMedia({ audio: true });
 
-            sendResponse(`processed: ${message.action}`);
-            navigator.mediaDevices.getDisplayMedia({ video: true })
-                .then(stream => {
-                    screenStream = stream;
-                    return navigator.mediaDevices.getUserMedia({ audio: true });
-                })
-                .then(stream => {
-                    // console.log(sendMessage("start_recording"))
-                    microphoneStream = stream;
-                    const combinedStream = new MediaStream([
-                        ...screenStream.getVideoTracks(),
-                        ...microphoneStream.getAudioTracks()
-                    ]);
-                    onAccessApproved(combinedStream);
-                })
-                .catch(error => {
-                    console.error('Error accessing media devices:', error);
-                });
-        } else {
-            alert("This extension is only to record your Google meeting. So please create your meeting then start recording.");
-        }
+        //     }).then(stream => {
+        //         microphoneStream = stream;
+        //         return navigator.mediaDevices.getUserMedia({
+        //             audio: {
+        //                 deviceId: deviceId
+        //             },
+        //         });
+        //     }).then(stream => {
+        //         speakerStream = stream;
+        //         console.log(speakerStream);
+        //         const combinedStream = new MediaStream([
+        //             ...screenStream.getVideoTracks(),
+        //             ...microphoneStream.getAudioTracks(),
+        //             ...speakerStream.getAudioTracks()
+        //         ]);
+        //         onAccessApproved(combinedStream);
+        //     }).catch(error => {
+        //         console.error('Error accessing media devices:', error);
+        //     });
+        // } else {
+        //     alert("This extension is only to record your Google meeting. So please create your meeting then start recording.");
+        // }
     }
 
     if (message.action === "stop_recording") {

@@ -1,0 +1,149 @@
+//To combine audio capture form tab and video from screen this will combine both and generate the single video
+// const combineVideoAndAudio = (videoBlobUrl, audioBlobUrl) => {
+//     const video = document.createElement('video');
+//     const audio = document.createElement('audio');
+//     const mediaSource = new MediaSource();
+
+//     video.src = videoBlobUrl;
+//     audio.src = audioBlobUrl;
+
+//     video.addEventListener('loadedmetadata', () => {
+//         const canvas = document.createElement('canvas');
+//         const ctx = canvas.getContext('2d');
+//         const width = video.videoWidth;
+//         const height = video.videoHeight;
+
+//         canvas.width = width;
+//         canvas.height = height;
+
+//         const sourceBuffer = mediaSource.addSourceBuffer('video/webm; codecs="vp8"');
+
+//         const appendVideoData = () => {
+//             ctx.drawImage(video, 0, 0, width, height);
+//             canvas.toBlob((blob) => {
+//                 sourceBuffer.appendBuffer(new Uint8Array(blob));
+//             }, 'image/webp');
+//         };
+
+//         const appendAudioData = () => {
+//             fetch(audioBlobUrl)
+//                 .then(response => response.arrayBuffer())
+//                 .then(data => sourceBuffer.appendBuffer(new Uint8Array(data)));
+//         };
+
+//         mediaSource.addEventListener('sourceopen', () => {
+//             appendVideoData();
+//             appendAudioData();
+//         });
+
+//         mediaSource.addEventListener('sourceended', () => {
+//             const combinedBlob = new Blob([sourceBuffer.buffer], { type: 'video/webm' });
+//             const downloadLink = document.createElement('a');
+//             downloadLink.href = URL.createObjectURL(combinedBlob);
+//             downloadLink.download = 'combined_video_with_audio.webm';
+//             downloadLink.click();
+
+//             // Clean up
+//             document.body.removeChild(downloadLink);
+//             document.body.removeChild(video);
+//             document.body.removeChild(audio);
+//             document.body.removeChild(canvas);
+//         });
+
+//         document.body.appendChild(video);
+//         document.body.appendChild(audio);
+//         document.body.appendChild(canvas);
+
+//         video.play();
+//         audio.play();
+//     });
+
+// }
+
+//to send message to background
+// const sendMessage = (message) => {
+//     chrome.runtime.sendMessage({
+//         active: message === "start_recording" ? true : false
+//     }, (response) => {
+//         if (!chrome.runtime.lastError) {
+//             return response;
+//         } else {
+//             console.log(chrome.runtime.lastError)
+//         }
+//     })
+// }
+
+// let startTabId;
+// let completeTabID;
+// let audioURL = null;
+// let mediaRecorder;
+// let audioCtx;
+// let liveStream;
+
+// Listening for messages from content scripts
+// chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+//     if (request.active) {
+//         audioCapture();
+//         sendResponse({ msg: "started" });
+//     }
+//     else {
+//         stopCapture();
+//         sendResponse({ msg: "ended" });
+//     }
+// });
+
+
+// const audioCapture = () => {
+
+//     chrome.tabCapture.capture({
+//         audio: true
+//     }).then(stream => {
+//         chrome.tabs.query({
+//             active: true,
+//             currentWindow: true
+//         }, (tabs) => startTabId = tabs[0].id)
+
+//         liveStream = stream;
+//         audioCtx = new AudioContext();
+//         const source = audioCtx.createMediaStreamSource(stream);
+//         mediaRecorder = new Recorder(source);
+
+//         mediaRecorder.startRecording();
+
+//         mediaRecorder.onComplete = (recorder, blob) => {
+//             audioURL = window.URL.createObjectURL(blob);
+//             if (startTabId) {
+//                 chrome.tabs.sendMessage(startTabId, {
+//                     type: "encodingComplete",
+//                     url: audioURL
+//                 });
+//             }
+//             mediaRecorder = null;
+//         }
+//     }).catch(error => {
+//         console.error('Error accessing media devices:', error);
+//     });
+// }
+context = new AudioContext();
+                var audio = context.createMediaStreamSource(stream);
+                audio.connect(context.destination);
+                onAccessApproved(stream)
+// const stopCapture = () => {
+//     audioCtx.close();
+//     liveStream.getAudioTracks()[0].stop();
+//     mediaRecorder.finishRecording();
+// }
+deviceId
+: 
+"communications"
+groupId
+: 
+"3ba35b3245a3bad31113b7afb60d42d2df10f7c9a66ebad62ca873813bdd386c"
+kind
+: 
+"audiooutput"
+label
+: 
+"Communications - Speakers (Realtek High Definition 
+
+https://meet.google.com/$rpc/google.rtc.meetings.v1.MeetingSpaceService/SyncMeetingSpaceCollections
