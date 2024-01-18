@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
     startVideoButton.addEventListener("click", () => {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             chrome.tabCapture.getMediaStreamId({ consumerTabId: tabs[0].id }, (streamId) => {
+                console.log(streamId);
                 chrome.tabs.sendMessage(tabs[0].id, {
                     action: 'start_recording',
                     tabId: tabs[0].id,

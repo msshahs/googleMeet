@@ -1,4 +1,5 @@
 var mediaRecorder = null;
+var microphoneRecorder = null;
 let recognition = null;
 let recognitionStopped = false;
 let fullTranscript = '';
@@ -43,16 +44,40 @@ const recognitionCapture = () => {
     recognition.start()
 }
 
+// for recording the microphone audio
+const microphoneCapture = (stream) => {
+    microphoneRecorder = new MediaRecorder(stream);
+    let chunks = [];
+
+    microphoneRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+            chunks.push(event.data);
+        }
+    };
+
+    microphoneRecorder.onstop = () => {
+        const audioBlob = new Blob(chunks, { type: 'audio/wav' });
+        const downloadLink = document.createElement('a');
+        downloadLink.href = URL.createObjectURL(audioBlob);
+        downloadLink.download = 'recorded_audio.wav';
+        downloadLink.click();
+        stream.getTracks().forEach(function (track) {
+            if (track.readyState === "live") {
+                track.stop();
+            }
+        });
+    };
+
+    microphoneRecorder.start();
+}
 
 // logic to set the video stream
 const onAccessApproved = (stream) => {
     mediaRecorder = new MediaRecorder(stream);
     mediaRecorder.start();
-
     // recognitionCapture();
 
     mediaRecorder.onstop = () => {
-        // console.log(sendMessage("stop_recording"))
         stream.getTracks().forEach(function (track) {
             if (track.readyState === "live") {
                 track.stop();
@@ -63,7 +88,7 @@ const onAccessApproved = (stream) => {
     mediaRecorder.ondataavailable = (event) => {
         let recordedBlob = event.data;
         let url = URL.createObjectURL(recordedBlob);
-        stopRecognition();
+        // stopRecognition();
         downloadVideo(url);
     };
 }
@@ -139,24 +164,22 @@ const isGoogleMeet = () => {
     );
 }
 
-const speakerOnly = (deviceId) => {
-    let speakerStream;
+// only for testing purpose
+const speakerOnly = (streamId) => {
     navigator.mediaDevices.getUserMedia({
-        audio: true,
+        video: false,
         audio: {
-            deviceId: deviceId
+            mandatory: {
+                chromeMediaSource: 'tab',
+                chromeMediaSourceId: streamId
+            }
         }
-    }).then((stream) => {
+    }).then(async (stream) => {
         speakerStream = stream;
-        context = new AudioContext();
-        var audio = context.createMediaStreamSource(stream);
-        audio.connect(context.destination);
-        console.log('Audio stream:', speakerStream);
-        const mediaRecorder = new MediaRecorder(speakerStream);
+        const mediaRecorder = new MediaRecorder(stream);
         const chunks = [];
 
         mediaRecorder.ondataavailable = (event) => {
-            console.log('Stream has audio track:', event.track);
             if (event.data.size > 0) {
                 chunks.push(event.data);
             }
@@ -168,68 +191,67 @@ const speakerOnly = (deviceId) => {
             downloadLink.href = URL.createObjectURL(audioBlob);
             downloadLink.download = 'recorded_audio.wav';
             downloadLink.click();
+            audioCtx.close()
+            stream.getTracks().forEach(function (track) {
+                if (track.readyState === "live") {
+                    track.stop();
+                }
+            });
         };
 
         mediaRecorder.start();
 
         setTimeout(() => {
             mediaRecorder.stop();
-            audioContext.close();
-        }, 15000);
+        }, 10000);
 
     }).catch((error) => {
         console.error('Error accessing microphone:', error);
     });
 }
 
+// get only microphone stream
+const microphoneOnly = () => {
+    navigator.mediaDevices.getUserMedia({ audio: true })
+        .then((microphoneStream) => {
+            microphoneCapture(microphoneStream)
+        })
+        .catch((error) => {
+            console.error('Error accessing media devices:', error);
+        })
+}
+
+// get the whole tab stream 
+const getTabStream = (streamId) => {
+    navigator.mediaDevices.getUserMedia({
+        video: {
+            mandatory: {
+                chromeMediaSource: 'tab',
+                chromeMediaSourceId: streamId
+            }
+        },
+        audio: {
+            mandatory: {
+                chromeMediaSource: 'tab',
+                chromeMediaSourceId: streamId
+            }
+        }
+    }).then((stream) => {
+        screenStream = stream;
+        onAccessApproved(screenStream);
+    }).catch(error => {
+        console.error('Error accessing media devices:', error);
+    });
+}
 
 // check the request from extension
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     if (message.action === "start_recording") {
-        let devices = await fetchAllDevices();
-        let deviceId;
-        console.log(devices)
-        devices.forEach(device => {
-            if (device.label === "Default - Speakers (Realtek High Definition Audio)") {
-                deviceId = device.deviceId
-            }
-        })
-        console.log(deviceId);
-        // speakerOnly(deviceId)
+        // speakerOnly(message.streamId)
         if (isGoogleMeet()) {
             sendResponse(`processed: ${message.action}`);
-            navigator.mediaDevices.getUserMedia({
-                video: true,
-                audio: false,
-                video: {
-                    mandatory: {
-                        chromeMediaSource: 'tab',
-                        chromeMediaSourceId: message.streamId
-                    }
-                }
-            }).then((stream) => {
-                screenStream = stream;
-                return navigator.mediaDevices.getUserMedia({ audio: true });
-
-            }).then(stream => {
-                microphoneStream = stream;
-                return navigator.mediaDevices.getUserMedia({
-                    audio: {
-                        deviceId: deviceId
-                    },
-                });
-                
-            }).then(stream => {
-                speakerStream = stream;
-                const combinedStream = new MediaStream([
-                    ...screenStream.getVideoTracks(),
-                    ...microphoneStream.getAudioTracks(),
-                    ...speakerStream.getAudioTracks()
-                ]);
-                onAccessApproved(combinedStream);
-            }).catch(error => {
-                console.error('Error accessing media devices:', error);
-            });
+            getTabStream(message.streamId)
+            microphoneOnly()
         } else {
             alert("This extension is only to record your Google meeting. So please create your meeting then start recording.");
         }
@@ -239,5 +261,6 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
         sendResponse(`processed: ${message.action}`);
         if (!mediaRecorder) return console.log("no media recorder");
         mediaRecorder.stop();
+        microphoneRecorder.stop();
     }
 });
