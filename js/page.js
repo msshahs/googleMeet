@@ -12,6 +12,113 @@ let audioInputDevices = [];
 let videoInputDevices = [];
 // let audioUrl;
 
+const RECORD_HELPER = {
+    wav: "recorderFormatWav.js",
+    mp3: "recorderFormatMP3.js"
+}
+
+const DEFAULT_CONFIG = {
+    workerDir: "/recorderHelpers/",
+    numChannels: 2,
+    encoding: "wav",
+    options: {
+        timeLimit: 1200,
+        encodeAfterRecord: !0,
+        progressInterval: 1e3,
+        bufferSize: void 0,
+        wav: {
+            mimeType: "audio/wav"
+        },
+        mp3: {
+            mimeType: "audio/mpeg",
+            bitRate: 192
+        }
+    }
+};
+
+
+
+class Recorder {
+    constructor(e, t) {
+        extend(this, DEFAULT_CONFIG, t || {}), this.context = e.context, null == this.context.createScriptProcessor && (this.context.createScriptProcessor = this.context.createJavaScriptNode), this.input = this.context.createGain(), e.connect(this.input), this.buffer = [], this.initWorker()
+    }
+    isRecording() {
+        return null != this.processor
+    }
+    setEncoding(e) {
+        this.isRecording() || this.encoding === e || (this.encoding = e, this.initWorker())
+    }
+    setOptions(e) {
+        this.isRecording() || (extend(this.options, e), this.worker.postMessage({
+            command: "options",
+            options: this.options
+        }))
+    }
+    startRecording() {
+        if (!this.isRecording()) {
+            let e = this.numChannels,
+                t = this.buffer,
+                o = this.worker;
+            this.processor = this.context.createScriptProcessor(this.options.bufferSize, this.numChannels, this.numChannels), this.input.connect(this.processor), this.processor.connect(this.context.destination), this.processor.onaudioprocess = function (n) {
+                for (var r = 0; r < e; ++r) t[r] = n.inputBuffer.getChannelData(r);
+                o.postMessage({
+                    command: "record",
+                    buffer: t
+                })
+            }, this.worker.postMessage({
+                command: "start",
+                bufferSize: this.processor.bufferSize
+            }), this.startTime = Date.now()
+        }
+    }
+    cancelRecording() {
+        this.isRecording() && (this.input.disconnect(), this.processor.disconnect(), delete this.processor, this.worker.postMessage({
+            command: "cancel"
+        }))
+    }
+    finishRecording() {
+        this.isRecording() && (this.input.disconnect(), this.processor.disconnect(), delete this.processor, this.worker.postMessage({
+            command: "finish"
+        }))
+    }
+    cancelEncoding() {
+        this.options.encodeAfterRecord && (this.isRecording() || (this.onEncodingCanceled(this), this.initWorker()))
+    }
+    initWorker() {
+        null != this.worker && this.worker.terminate(), this.onEncoderLoading(this, this.encoding), this.worker = new Worker(this.workerDir + RECORD_HELPER[this.encoding]);
+        let e = this;
+        this.worker.onmessage = function (t) {
+            let o = t.data;
+            switch (o.command) {
+                case "loaded":
+                    e.onEncoderLoaded(e, e.encoding);
+                    break;
+                case "timeout":
+                    e.onTimeout(e);
+                    break;
+                case "progress":
+                    e.onEncodingProgress(e, o.progress);
+                    break;
+                case "complete":
+                    e.onComplete(e, o.blob)
+            }
+        }, this.worker.postMessage({
+            command: "init",
+            config: {
+                sampleRate: this.context.sampleRate,
+                numChannels: this.numChannels
+            },
+            options: this.options
+        })
+    }
+    onEncoderLoading(e, t) { }
+    onEncoderLoaded(e, t) { }
+    onTimeout(e) { }
+    onEncodingProgress(e, t) { }
+    onEncodingCanceled(e) { }
+    onComplete(e, t) { }
+}
+
 console.log("here")
 
 //capture the recognition to convert it in text
@@ -166,17 +273,27 @@ const isGoogleMeet = () => {
 
 // only for testing purpose
 const speakerOnly = (streamId) => {
+    const config = {
+        maxTime: 12e5,
+        muteTab: !1,
+        format: "mp3",
+        quality: 192,
+        limitRemoved: !1
+    }
     navigator.mediaDevices.getUserMedia({
         video: false,
         audio: {
             mandatory: {
                 chromeMediaSource: 'tab',
-                chromeMediaSourceId: streamId
+                chromeMediaSourceId: streamId,
+                echoCancellation: true
             }
         }
     }).then(async (stream) => {
         speakerStream = stream;
-        const mediaRecorder = new MediaRecorder(stream);
+        const audioCtx = new AudioContext();
+        const source = audioCtx.createMediaStreamSource(stream)
+        const mediaRecorder = new Recorder(source);
         const chunks = [];
 
         mediaRecorder.ondataavailable = (event) => {
@@ -191,7 +308,7 @@ const speakerOnly = (streamId) => {
             downloadLink.href = URL.createObjectURL(audioBlob);
             downloadLink.download = 'recorded_audio.wav';
             downloadLink.click();
-            audioCtx.close()
+            output.close()
             stream.getTracks().forEach(function (track) {
                 if (track.readyState === "live") {
                     track.stop();
@@ -233,7 +350,9 @@ const getTabStream = (streamId) => {
         audio: {
             mandatory: {
                 chromeMediaSource: 'tab',
-                chromeMediaSourceId: streamId
+                chromeMediaSourceId: streamId,
+                suppressLocalAudioPlayback: true,
+                echoCancellation: true
             }
         }
     }).then((stream) => {
@@ -247,7 +366,6 @@ const getTabStream = (streamId) => {
 // check the request from extension
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     if (message.action === "start_recording") {
-        // speakerOnly(message.streamId)
         if (isGoogleMeet()) {
             sendResponse(`processed: ${message.action}`);
             getTabStream(message.streamId)
