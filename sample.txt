@@ -147,3 +147,33 @@ label
 "Communications - Speakers (Realtek High Definition )
 
 https://meet.google.com/$rpc/google.rtc.meetings.v1.MeetingSpaceService/SyncMeetingSpaceCollections
+
+//capture the recognition to convert it in text
+// const recognitionCapture = () => {
+//   recognition = new webkitSpeechRecognition();
+//   recognition.onresult = function (event) {
+//     const transcript = event.results[0][0].transcript;
+//     fullTranscript += transcript;
+//     recognitionStopped = false;
+//     console.log("fullTranscript :", fullTranscript);
+//   };
+
+//   recognition.onerror = function (event) {
+//     console.error("Speech recognition error :", event.error);
+//   };
+
+//   recognition.onend = function (num) {
+//     if (!recognitionStopped) {
+//       console.log("Speech recognition ended & restarted.");
+//       recognition.start();
+//     } else {
+//       downloadTranscript(fullTranscript);
+//       fullTranscript = "";
+//       console.log("Speech recognition ended completely.");
+//     }
+//   };
+
+//   recognition.lang = "en-US";
+
+//   recognition.start();
+// };
